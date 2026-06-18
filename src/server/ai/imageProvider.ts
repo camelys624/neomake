@@ -1,18 +1,90 @@
-import type { GenerationMode, UploadedAsset } from "@/lib/types";
+import type { GenerationMode, ImageGenerationModel, UploadedAsset } from "@/lib/types";
+import { getImageModelConfig } from "./config";
 
-export interface GenerateShoeImagesInput { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[] }
+export interface GenerateShoeImagesInput { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[]; model: ImageGenerationModel; outputCount: number }
 export interface GeneratedImage { url: string; alt: string }
 
-export function buildGptImageRequest(input: GenerateShoeImagesInput) {
-  return { model: "gpt-image-2" as const, prompt: input.prompt, mode: input.mode, image_count: 2, source_asset_ids: input.assets.map((asset) => asset.id) };
+const IMAGE2_MODEL_CONFIG: Record<ImageGenerationModel, { providerModel: "gpt-image-2-1K" | "gpt-image-2-2K" | "gpt-image-2-4K"; size: "1024x1024" | "2048x2048" | "3840x2160" }> = {
+  "image2-1k": { providerModel: "gpt-image-2-1K", size: "1024x1024" },
+  "image2-2k": { providerModel: "gpt-image-2-2K", size: "2048x2048" },
+  "image2-4k": { providerModel: "gpt-image-2-4K", size: "3840x2160" },
+};
+
+function clampOutputCount(value: number) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(8, Math.max(1, Math.trunc(value)));
 }
 
-function svgDataUrl(label: string, prompt: string, index: number) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#111827"/><stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs><rect width="900" height="640" rx="40" fill="url(#g)"/><ellipse cx="450" cy="385" rx="270" ry="92" fill="#fff" opacity="0.88"/><path d="M230 375 C330 245 515 250 675 350 L720 395 C615 430 385 432 210 405 Z" fill="#f8fafc"/><path d="M310 345 C385 295 505 292 608 345" fill="none" stroke="#111827" stroke-width="16" stroke-linecap="round" opacity="0.72"/><text x="52" y="82" fill="#fff" font-family="Arial" font-size="42" font-weight="700">${label}</text><text x="52" y="132" fill="#fff" font-family="Arial" font-size="24">${prompt.slice(0, 36)}</text><text x="762" y="588" fill="#fff" font-family="Arial" font-size="28">#${index}</text></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+export function buildGptImageRequest(input: GenerateShoeImagesInput) {
+  const config = IMAGE2_MODEL_CONFIG[input.model];
+  return { model: config.providerModel, size: config.size, quality: "high" as const, n: clampOutputCount(input.outputCount), prompt: input.prompt, mode: input.mode, source_asset_ids: input.assets.map((asset) => asset.id) };
+}
+
+interface ImageProviderImage {
+  url?: string;
+  b64_json?: string;
+}
+
+interface ImageProviderPayload {
+  data?: ImageProviderImage[];
+  images?: ImageProviderImage[];
+  error?: { message?: string } | string;
+}
+
+function resolveImageUrl(item: ImageProviderImage): string | null {
+  if (item.url?.trim()) return item.url;
+  if (item.b64_json?.trim()) return `data:image/png;base64,${item.b64_json}`;
+  return null;
+}
+
+function collectImages(payload: ImageProviderPayload): ImageProviderImage[] {
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.images)) return payload.images;
+  return [];
+}
+
+function payloadErrorMessage(payload: ImageProviderPayload): string {
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (typeof payload.error === "object" && payload.error?.message?.trim()) return payload.error.message;
+  return "Image model request failed";
+}
+
+function resolveImageEndpoint(endpoint: string): string {
+  const url = new URL(endpoint);
+  const path = url.pathname.replace(/\/+$/, "");
+  if (!path || path === "/" || path === "/v1") {
+    url.pathname = "/v1/images/generations/";
+    return url.toString();
+  }
+  if (path === "/v1/images/generations") {
+    url.pathname = "/v1/images/generations/";
+    return url.toString();
+  }
+  return endpoint;
 }
 
 export async function generateShoeImages(input: GenerateShoeImagesInput): Promise<GeneratedImage[]> {
-  buildGptImageRequest(input);
-  return [1, 2].map((index) => ({ url: svgDataUrl(input.mode === "four_view_to_model" ? "四面图生成" : "白板鞋换风格", input.prompt, index), alt: `AI 鞋履效果图 ${index}` }));
+  const { endpoint, apiKey } = getImageModelConfig();
+  if (typeof fetch !== "function") throw new Error("Fetch API is unavailable");
+  const request = buildGptImageRequest(input);
+  const response = await fetch(resolveImageEndpoint(endpoint), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(request),
+  });
+  const payload = await response.json() as ImageProviderPayload;
+
+  if (!response.ok) throw new Error(payloadErrorMessage(payload));
+
+  const images = collectImages(payload)
+    .map(resolveImageUrl)
+    .filter((url): url is string => Boolean(url))
+    .slice(0, request.n)
+    .map((url, idx) => ({ url, alt: `AI 鞋履效果图 ${idx + 1}` }));
+
+  if (!images.length) throw new Error("Image model response missing images");
+  return images;
 }

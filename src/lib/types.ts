@@ -1,5 +1,6 @@
 export type UserRole = "user" | "admin";
 export type GenerationMode = "four_view_to_model" | "blank_shoe_style_transfer";
+export type ImageGenerationModel = "image2-1k" | "image2-2k" | "image2-4k";
 export type GenerationStatus = "queued" | "processing" | "succeeded" | "failed";
 export type ImageToolKind = "remove_background" | "enhance_clarity" | "upscale";
 export type PaymentProvider = "alipay" | "wechat";

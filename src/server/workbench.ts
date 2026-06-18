@@ -1,8 +1,8 @@
-import type { GenerationMode, UploadedAsset } from "@/lib/types";
+import type { GenerationMode, ImageGenerationModel, UploadedAsset } from "@/lib/types";
 import { generateShoeImages } from "./ai/imageProvider";
 import { newId, nowIso, state } from "./dataStore";
 
-export async function submitGeneration(input: { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[] }) {
+export async function submitGeneration(input: { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[]; model: ImageGenerationModel; outputCount: number }) {
   if (input.mode === "four_view_to_model" && input.assets.length !== 4) throw new Error("请先补齐必需图片");
   if (input.mode === "blank_shoe_style_transfer" && input.assets.length < 1) throw new Error("请先补齐必需图片");
   for (const asset of input.assets) if (!state.assets.some((item) => item.id === asset.id)) state.assets.push(asset);

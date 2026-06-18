@@ -1,0 +1,8 @@
+interface:
+  display_name: "Configurable Image2"
+  short_description: "Generate and edit images after collecting base URL, API key, and 1K/2K/4K resolution."
+  brand_color: "#00B8D9"
+  default_prompt: "Use $configurable-image2 to generate a polished image; ask me for the request website, API key, and 1K/2K/4K resolution if I did not provide them."
+
+policy:
+  allow_implicit_invocation: true
