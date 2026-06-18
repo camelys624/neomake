@@ -80,7 +80,7 @@ describe("generation adapter", () => {
     expect(request.n).toBe(8);
   });
 
-  it("calls OpenAI images endpoint using configured base URL", async () => {
+  it("sends uploaded image content via images edit endpoint", async () => {
     setImageModelEnv();
     const user = createUser({ phone: "16600000009" });
     const assets = makeAssets(user.id);
@@ -90,35 +90,97 @@ describe("generation adapter", () => {
 
     try {
       const images = await generateShoeImages({ userId: user.id, mode: "four_view_to_model", prompt: "红色鞋面", assets, model: "image2-1k", outputCount: 2 });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      const firstCall = fetchMock.mock.calls[0];
-      const calledTarget = firstCall?.[0];
-      const calledUrl = typeof calledTarget === "string" ? calledTarget : (calledTarget as Request).url;
+      const imageEditCall = fetchMock.mock.calls.find((call) => {
+        const target = call[0] as RequestInfo;
+        const url = typeof target === "string" ? target : target.url;
+        return url.includes("/images/edits");
+      });
+      expect(imageEditCall).toBeTruthy();
+
+      const calledTarget = imageEditCall?.[0] as RequestInfo;
+      const calledInit = imageEditCall?.[1] as RequestInit | undefined;
+      const calledUrl = typeof calledTarget === "string" ? calledTarget : calledTarget.url;
       const calledMethod = typeof calledTarget === "string"
-        ? String((firstCall?.[1] as RequestInit | undefined)?.method ?? "POST")
-        : (calledTarget as Request).method;
-      expect(calledUrl).toBe("https://image.example.test/v1/images/generations");
-      expect(calledMethod.toUpperCase()).toBe("POST");
+        ? String(calledInit?.method ?? "POST").toUpperCase()
+        : calledTarget.method.toUpperCase();
+      expect(calledUrl).toBe("https://image.example.test/v1/images/edits");
+      expect(calledMethod).toBe("POST");
+
+      const form = typeof calledTarget === "string"
+        ? (calledInit?.body as FormData)
+        : await calledTarget.clone().formData();
+      const multipartPreview = await new Request("https://local.test/upload", { method: "POST", body: form }).text();
+      const imageFieldMatches = multipartPreview.match(/name="image\[\]"/g) ?? [];
+      expect(imageFieldMatches).toHaveLength(4);
+      const uploadedFiles = form.getAll("image[]") as File[];
+      expect(uploadedFiles.map((file) => file.name)).toEqual(["正面.png", "侧面.png", "背面.png", "俯视.png"]);
+      expect(form.get("model")).toBe("gpt-image-2-vip");
+      expect(form.get("size")).toBe("1024x1024");
+      const promptValue = String(form.get("prompt") ?? "");
+      expect(promptValue).toContain("输入图顺序");
+      expect(promptValue).toContain("1. 正面");
+      expect(promptValue).toContain("2. 侧面");
+      expect(promptValue).toContain("3. 背面");
+      expect(promptValue).toContain("4. 俯视");
+      expect(promptValue).toContain("红色鞋面");
       expect(images.map((image) => image.url)).toEqual(["https://cdn.example.test/r1.png", "https://cdn.example.test/r2.png"]);
     } finally {
       (globalThis as typeof globalThis & { fetch?: typeof fetch }).fetch = originalFetch;
     }
   });
-
-  it("normalizes images generations endpoint when endpoint already contains the route", async () => {
+  it("normalizes images edits endpoint when endpoint already contains the route", async () => {
     const user = createUser({ phone: "16600000010" });
     const assets = makeAssets(user.id);
     const fetchMock = vi.fn().mockResolvedValue(mockImagesApiResponse(["https://cdn.example.test/r1.png"]));
     const originalFetch = globalThis.fetch;
-    process.env.IMAGE_MODEL_ENDPOINT = "https://image.example.test/v1/images/generations/";
+    process.env.IMAGE_MODEL_ENDPOINT = "https://image.example.test/v1/images/edits/";
     process.env.IMAGE_MODEL_API_KEY = "test-key";
     (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
 
     try {
       await generateShoeImages({ userId: user.id, mode: "four_view_to_model", prompt: "红色鞋面", assets, model: "image2-1k", outputCount: 1 });
-      const calledTarget = fetchMock.mock.calls[0]?.[0];
-      const calledUrl = typeof calledTarget === "string" ? calledTarget : (calledTarget as Request).url;
-      expect(calledUrl).toBe("https://image.example.test/v1/images/generations");
+      const imageEditCall = fetchMock.mock.calls.find((call) => {
+        const target = call[0] as RequestInfo;
+        const url = typeof target === "string" ? target : target.url;
+        return url.includes("/images/edits");
+      });
+      expect(imageEditCall).toBeTruthy();
+      const calledTarget = imageEditCall?.[0] as RequestInfo;
+      const calledUrl = typeof calledTarget === "string" ? calledTarget : calledTarget.url;
+      expect(calledUrl).toBe("https://image.example.test/v1/images/edits");
+    } finally {
+      (globalThis as typeof globalThis & { fetch?: typeof fetch }).fetch = originalFetch;
+    }
+  });
+
+  it("uses semantic filenames for blank shoe style transfer inputs", async () => {
+    setImageModelEnv();
+    const user = createUser({ phone: "16600000011" });
+    const assets = makeAssets(user.id).slice(0, 2);
+    const fetchMock = vi.fn().mockResolvedValue(mockImagesApiResponse(["https://cdn.example.test/r1.png"]));
+    const originalFetch = globalThis.fetch;
+    (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await generateShoeImages({ userId: user.id, mode: "blank_shoe_style_transfer", prompt: "白板鞋改成森林绿", assets, model: "image2-1k", outputCount: 1 });
+      const imageEditCall = fetchMock.mock.calls.find((call) => {
+        const target = call[0] as RequestInfo;
+        const url = typeof target === "string" ? target : target.url;
+        return url.includes("/images/edits");
+      });
+      expect(imageEditCall).toBeTruthy();
+      const calledTarget = imageEditCall?.[0] as RequestInfo;
+      const calledInit = imageEditCall?.[1] as RequestInit | undefined;
+      const form = typeof calledTarget === "string"
+        ? (calledInit?.body as FormData)
+        : await calledTarget.clone().formData();
+      const uploadedFiles = form.getAll("image[]") as File[];
+      expect(uploadedFiles.map((file) => file.name)).toEqual(["白板鞋.png", "参考图.png"]);
+      const promptValue = String(form.get("prompt") ?? "");
+      expect(promptValue).toContain("输入图顺序");
+      expect(promptValue).toContain("1. 白板鞋");
+      expect(promptValue).toContain("2. 参考图");
+      expect(promptValue).toContain("白板鞋改成森林绿");
     } finally {
       (globalThis as typeof globalThis & { fetch?: typeof fetch }).fetch = originalFetch;
     }
