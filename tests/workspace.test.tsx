@@ -5,6 +5,7 @@ import type { SafeUser } from "../src/lib/types";
 import { AuthProvider } from "../src/appState";
 import { App } from "../src/App";
 import * as workbench from "../src/server/workbench";
+import type { SubmitGenerationResult } from "../src/server/workbench";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/workspace" });
 Object.assign(globalThis, {
@@ -95,7 +96,7 @@ describe("Workspace uploads", () => {
   });
 
   it("shows one loading skeleton per requested output image while generating", async () => {
-    let resolveSubmit: ((value: unknown) => void) | null = null;
+    let resolveSubmit: ((value: SubmitGenerationResult) => void) | undefined;
     const submitSpy = vi.spyOn(workbench, "submitGeneration").mockImplementation(() => new Promise((resolve) => { resolveSubmit = resolve; }));
 
     const view = renderWorkspace(makeUser());
@@ -111,7 +112,8 @@ describe("Workspace uploads", () => {
 
     await waitFor(() => expect(view.container.querySelectorAll('[data-testid="generation-skeleton"]').length).toBe(3));
 
-    resolveSubmit?.({
+    if (!resolveSubmit) throw new Error("submitGeneration was not invoked");
+    resolveSubmit({
       job: {
         id: "gen_1",
         userId: "usr_test",
@@ -125,9 +127,9 @@ describe("Workspace uploads", () => {
         updatedAt: new Date().toISOString(),
       },
       images: [
-        { url: "https://example.com/1.png" },
-        { url: "https://example.com/2.png" },
-        { url: "https://example.com/3.png" },
+        { url: "https://example.com/1.png", alt: "AI 鞋履效果图 1" },
+        { url: "https://example.com/2.png", alt: "AI 鞋履效果图 2" },
+        { url: "https://example.com/3.png", alt: "AI 鞋履效果图 3" },
       ],
     });
 

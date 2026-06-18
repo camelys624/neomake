@@ -2,7 +2,32 @@ import type { GenerationMode, ImageGenerationModel, UploadedAsset } from "@/lib/
 import { generateShoeImages } from "./ai/imageProvider";
 import { newId, nowIso, state } from "./dataStore";
 
-export async function submitGeneration(input: { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[]; model: ImageGenerationModel; outputCount: number }) {
+export interface SubmitGenerationInput {
+  userId: string;
+  mode: GenerationMode;
+  prompt: string;
+  assets: UploadedAsset[];
+  model: ImageGenerationModel;
+  outputCount: number;
+}
+
+export interface SubmitGenerationResult {
+  job: {
+    id: string;
+    userId: string;
+    mode: GenerationMode;
+    prompt: string;
+    sourceAssetIdsJson: string;
+    resultImageUrlsJson: string;
+    status: "succeeded";
+    errorMessage: null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  images: { url: string; alt: string }[];
+}
+
+export async function submitGeneration(input: SubmitGenerationInput): Promise<SubmitGenerationResult> {
   if (input.mode === "four_view_to_model" && input.assets.length !== 4) throw new Error("请先补齐必需图片");
   if (input.mode === "blank_shoe_style_transfer" && input.assets.length < 1) throw new Error("请先补齐必需图片");
   for (const asset of input.assets) if (!state.assets.some((item) => item.id === asset.id)) state.assets.push(asset);
