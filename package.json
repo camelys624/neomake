@@ -1,0 +1,51 @@
+{
+  "name": "shoe-ai-commerce",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "node scripts/migrate-local.mjs",
+    "db:seed": "tsx scripts/seed.ts",
+    "cf:deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "@tanstack/react-query": "latest",
+    "@tanstack/react-form": "latest",
+    "@tanstack/react-table": "latest",
+    "@tanstack/react-router": "latest",
+    "drizzle-orm": "latest",
+    "@libsql/client": "latest",
+    "zod": "latest",
+    "lucide-react": "latest",
+    "nanoid": "latest",
+    "sonner": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260617.1",
+    "@tailwindcss/vite": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "bun": "^1.3.14",
+    "drizzle-kit": "latest",
+    "jsdom": "latest",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "vitest": "latest",
+    "wrangler": "latest"
+  }
+}

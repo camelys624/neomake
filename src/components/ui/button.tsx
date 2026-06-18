@@ -1,0 +1,5 @@
+import * as React from "react";
+import { cn } from "@/lib/utils";
+export function Button({ className, variant = "default", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "outline" | "ghost" | "destructive" }) {
+  return <button className={cn("inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-[-0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45", variant === "default" && "border border-stone-950 bg-stone-950 text-white shadow-sm hover:bg-stone-800 active:translate-y-px", variant === "outline" && "border border-stone-300 bg-white/85 text-stone-900 hover:border-stone-400 hover:bg-stone-50 active:translate-y-px", variant === "ghost" && "text-stone-700 hover:bg-stone-100 hover:text-stone-950 active:translate-y-px", variant === "destructive" && "border border-red-600 bg-red-600 text-white hover:bg-red-700 active:translate-y-px", className)} {...props} />;
+}

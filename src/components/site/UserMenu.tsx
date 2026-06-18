@@ -1,0 +1,4 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/appState";
+export function UserMenu() { const auth = useAuth(); if (!auth.user) return null; return <DropdownMenu><DropdownMenuTrigger aria-label="用户菜单"><Avatar><AvatarFallback>{auth.user.phone.slice(-2)}</AvatarFallback></Avatar></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={() => { location.href = "/account"; }}>用户信息</DropdownMenuItem><DropdownMenuItem onClick={() => { location.href = "/account?tab=orders"; }}>订单记录</DropdownMenuItem><DropdownMenuItem onClick={() => { location.href = "/recharge"; }}>充值</DropdownMenuItem><DropdownMenuItem onClick={auth.logout}>退出登录</DropdownMenuItem></DropdownMenuContent></DropdownMenu>; }

@@ -1,0 +1,1 @@
+export default { async fetch(request: Request, env: { ASSETS?: { fetch(request: Request): Promise<Response> } }) { if (env.ASSETS) return env.ASSETS.fetch(request); return new Response("ShoeForge AI", { headers: { "content-type": "text/plain;charset=utf-8" } }); } };

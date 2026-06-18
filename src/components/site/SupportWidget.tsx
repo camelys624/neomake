@@ -1,0 +1,8 @@
+import * as React from "react";
+import { MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { useAuth } from "@/appState";
+import { sendSupportMessage } from "@/server/support/service";
+export function SupportWidget() { const { user } = useAuth(); const [open, setOpen] = React.useState(false); const [body, setBody] = React.useState(""); const [messages, setMessages] = React.useState<string[]>([]); const [error, setError] = React.useState(""); function send() { try { const res = sendSupportMessage({ userId: user?.id, body }); setMessages((prev) => [...prev, body, res.messages[1].body]); setBody(""); setError(""); } catch { setError("消息发送失败，请稍后重试"); } } return <div className="fixed bottom-5 right-5 z-50"><Button className="rounded-full shadow-[0_18px_40px_rgba(28,25,23,0.2)]" onClick={() => setOpen(!open)} aria-expanded={open}><MessageCircle className="size-4" aria-hidden="true" />客服</Button>{open && <Card className="mt-3 w-[min(20rem,calc(100vw-2.5rem))]"><div className="mb-3 text-lg font-black tracking-[-0.03em] text-stone-950">客服</div><div className="mb-3 max-h-48 space-y-2 overflow-auto rounded-2xl bg-stone-50 p-3 text-sm text-stone-700">{messages.length === 0 ? <p className="text-stone-500">描述设计、采购或充值问题，后台会收到消息。</p> : messages.map((message, index) => <p key={index} className="rounded-xl bg-white px-3 py-2">{message}</p>)}</div><Textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="输入问题" aria-label="客服消息" /><Button className="mt-3 w-full" onClick={send}>发送</Button>{error && <p className="mt-2 text-sm text-red-700" role="alert">{error}</p>}</Card>}</div>; }
