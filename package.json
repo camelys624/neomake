@@ -31,6 +31,7 @@
     "drizzle-orm": "latest",
     "lucide-react": "latest",
     "nanoid": "latest",
+    "openai": "^6.44.0",
     "react": "latest",
     "react-dom": "latest",
     "sonner": "latest",

@@ -28,6 +28,7 @@ export function WorkspacePage() {
   const [generationModel, setGenerationModel] = React.useState<ImageGenerationModel>("image2-1k");
   const [outputCount, setOutputCount] = React.useState(2);
   const [loadingCount, setLoadingCount] = React.useState(0);
+  const [previewImageUrl, setPreviewImageUrl] = React.useState<string | null>(null);
 
   function clampOutputCount(value: string) {
     const parsed = Number.parseInt(value, 10);
@@ -88,6 +89,18 @@ export function WorkspacePage() {
             {history.map((j) => <div key={j.id} className="rounded-2xl border border-stone-200 bg-stone-50 p-3 text-sm"><Badge>{j.status}</Badge><p className="mt-2 text-stone-600">{j.createdAt}</p></div>)}
             {!history.length && <EmptyState>还没有生成记录</EmptyState>}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(previewImageUrl)}>
+        <DialogContent className="max-w-5xl p-4">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="text-lg">查看大图</DialogTitle>
+              <Button variant="ghost" aria-label="关闭大图" onClick={() => setPreviewImageUrl(null)}><X className="size-4" aria-hidden="true" /></Button>
+            </div>
+          </DialogHeader>
+          {previewImageUrl && <img src={previewImageUrl} alt="查看大图" className="max-h-[80vh] w-full rounded-2xl object-contain" />}
         </DialogContent>
       </Dialog>
 
@@ -156,7 +169,7 @@ export function WorkspacePage() {
         <section className="flex min-h-[76vh] flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white/95 shadow-[0_24px_70px_rgba(28,25,23,0.07)]">
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="grid min-h-72 place-items-center rounded-[1.5rem] border border-dashed border-stone-200 bg-[#fbfaf7] p-6 text-center">
-              {loadingCount > 0 ? <div className="grid w-full gap-4">{Array.from({ length: loadingCount }, (_, i) => <Card key={`skeleton-${i}`} className="overflow-hidden border-stone-200/80 bg-white/90 p-0"><div className="grid gap-0 lg:grid-cols-[1fr_220px]"><Skeleton data-testid="generation-skeleton" className="aspect-[4/3] w-full rounded-none bg-gradient-to-br from-stone-200 via-stone-100 to-stone-200" /><div className="flex flex-col justify-between gap-4 p-4 text-left"><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-32" /></div><div className="flex flex-wrap gap-2"><Skeleton className="h-9 w-14" /><Skeleton className="h-9 w-14" /><Skeleton className="h-9 w-14" /></div></div></div></Card>)}</div> : results.length ? <div className="grid w-full gap-4">{results.map((url, i) => <Card key={url} className="overflow-hidden p-0"><div className="grid gap-0 lg:grid-cols-[1fr_220px]"><img src={url} alt={`结果 ${i + 1}`} className="aspect-[4/3] w-full object-cover" /><div className="flex flex-col justify-between gap-4 p-4 text-left"><div><p className="text-sm font-semibold text-stone-500">生成结果 {i + 1}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline">查看</Button><Button variant="outline">选择</Button><Button onClick={() => { const job = state.generationJobs.at(-1); if (job && user) { sendGenerationToSupport(user.id, job.id); toast.success("已发送到后台"); } }}>发送</Button></div></div></div></Card>)}</div> : <div><Layers3 className="mx-auto mb-3 size-7 text-[#b77a2b]" aria-hidden="true" /><p className="text-sm text-stone-500">等待生成结果</p></div>}
+              {loadingCount > 0 ? <div className="grid w-full gap-4">{Array.from({ length: loadingCount }, (_, i) => <Card key={`skeleton-${i}`} className="overflow-hidden border-stone-200/80 bg-white/90 p-0"><div className="grid gap-0 lg:grid-cols-[1fr_220px]"><Skeleton data-testid="generation-skeleton" className="aspect-[4/3] w-full rounded-none bg-gradient-to-br from-stone-200 via-stone-100 to-stone-200" /><div className="flex flex-col justify-between gap-4 p-4 text-left"><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-32" /></div><div className="flex flex-wrap gap-2"><Skeleton className="h-9 w-14" /><Skeleton className="h-9 w-14" /><Skeleton className="h-9 w-14" /></div></div></div></Card>)}</div> : results.length ? <div className="grid w-full gap-4">{results.map((url, i) => <Card key={url} className="overflow-hidden p-0"><div className="grid gap-0 lg:grid-cols-[1fr_220px]"><img src={url} alt={`结果 ${i + 1}`} className="aspect-[4/3] w-full object-cover" /><div className="flex flex-col justify-between gap-4 p-4 text-left"><div><p className="text-sm font-semibold text-stone-500">生成结果 {i + 1}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setPreviewImageUrl(url)}>查看</Button><Button variant="outline">选择</Button><Button onClick={() => { const job = state.generationJobs.at(-1); if (job && user) { sendGenerationToSupport(user.id, job.id); toast.success("已发送到后台"); } }}>发送</Button></div></div></div></Card>)}</div> : <div><Layers3 className="mx-auto mb-3 size-7 text-[#b77a2b]" aria-hidden="true" /><p className="text-sm text-stone-500">等待生成结果</p></div>}
             </div>
           </div>
 

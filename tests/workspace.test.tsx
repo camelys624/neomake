@@ -136,4 +136,35 @@ describe("Workspace uploads", () => {
     await waitFor(() => expect(view.queryByAltText("结果 1")).toBeTruthy());
     submitSpy.mockRestore();
   });
+
+  it("opens a large image preview dialog when clicking 查看", async () => {
+    const submitSpy = vi.spyOn(workbench, "submitGeneration").mockResolvedValue({
+      job: {
+        id: "gen_preview_1",
+        userId: "usr_test",
+        mode: "four_view_to_model",
+        prompt: "",
+        sourceAssetIdsJson: "[]",
+        resultImageUrlsJson: JSON.stringify(["https://example.com/preview.png"]),
+        status: "succeeded",
+        errorMessage: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      images: [{ url: "https://example.com/preview.png", alt: "AI 鞋履效果图 1" }],
+    });
+
+    const view = renderWorkspace(makeUser());
+    const file = new File(["fake-png"], "front.png", { type: "image/png" });
+    const inputs = view.container.querySelectorAll('input[type="file"]');
+    for (const input of inputs) fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => expect(view.getByAltText("正面预览")).toBeTruthy());
+
+    fireEvent.click(view.getByRole("button", { name: "生成" }));
+    await waitFor(() => expect(view.getByAltText("结果 1")).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: "查看" }));
+
+    await waitFor(() => expect(view.getByRole("img", { name: "查看大图" })).toBeTruthy());
+    submitSpy.mockRestore();
+  });
 });

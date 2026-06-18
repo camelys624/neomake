@@ -1,13 +1,14 @@
+import OpenAI from "openai";
 import type { GenerationMode, ImageGenerationModel, UploadedAsset } from "@/lib/types";
 import { getImageModelConfig } from "./config";
 
 export interface GenerateShoeImagesInput { userId: string; mode: GenerationMode; prompt: string; assets: UploadedAsset[]; model: ImageGenerationModel; outputCount: number }
 export interface GeneratedImage { url: string; alt: string }
 
-const IMAGE2_MODEL_CONFIG: Record<ImageGenerationModel, { providerModel: "gpt-image-2-1K" | "gpt-image-2-2K" | "gpt-image-2-4K"; size: "1024x1024" | "2048x2048" | "3840x2160" }> = {
-  "image2-1k": { providerModel: "gpt-image-2-1K", size: "1024x1024" },
-  "image2-2k": { providerModel: "gpt-image-2-2K", size: "2048x2048" },
-  "image2-4k": { providerModel: "gpt-image-2-4K", size: "3840x2160" },
+const IMAGE2_MODEL_CONFIG: Record<ImageGenerationModel, { providerModel: "gpt-image-2-vip"; size: "1024x1024" | "2048x2048" | "3840x2160" }> = {
+  "image2-1k": { providerModel: "gpt-image-2-vip", size: "1024x1024" },
+  "image2-2k": { providerModel: "gpt-image-2-vip", size: "2048x2048" },
+  "image2-4k": { providerModel: "gpt-image-2-vip", size: "3840x2160" },
 };
 
 function clampOutputCount(value: number) {
@@ -20,70 +21,46 @@ export function buildGptImageRequest(input: GenerateShoeImagesInput) {
   return { model: config.providerModel, size: config.size, quality: "high" as const, n: clampOutputCount(input.outputCount), prompt: input.prompt, mode: input.mode, source_asset_ids: input.assets.map((asset) => asset.id) };
 }
 
-interface ImageProviderImage {
-  url?: string;
-  b64_json?: string;
-}
-
-interface ImageProviderPayload {
-  data?: ImageProviderImage[];
-  images?: ImageProviderImage[];
-  error?: { message?: string } | string;
-}
-
-function resolveImageUrl(item: ImageProviderImage): string | null {
-  if (item.url?.trim()) return item.url;
-  if (item.b64_json?.trim()) return `data:image/png;base64,${item.b64_json}`;
-  return null;
-}
-
-function collectImages(payload: ImageProviderPayload): ImageProviderImage[] {
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.images)) return payload.images;
-  return [];
-}
-
-function payloadErrorMessage(payload: ImageProviderPayload): string {
-  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
-  if (typeof payload.error === "object" && payload.error?.message?.trim()) return payload.error.message;
-  return "Image model request failed";
-}
-
-function resolveImageEndpoint(endpoint: string): string {
+function resolveOpenAIBaseUrl(endpoint: string): string {
   const url = new URL(endpoint);
-  const path = url.pathname.replace(/\/+$/, "");
-  if (!path || path === "/" || path === "/v1") {
-    url.pathname = "/v1/images/generations/";
+  const normalizedPath = url.pathname.replace(/\/+$/, "");
+  if (!normalizedPath || normalizedPath === "/") {
+    url.pathname = "/v1";
     return url.toString();
   }
-  if (path === "/v1/images/generations") {
-    url.pathname = "/v1/images/generations/";
+  if (normalizedPath === "/v1") return endpoint;
+  if (normalizedPath === "/v1/images/generations") {
+    url.pathname = "/v1";
     return url.toString();
   }
   return endpoint;
 }
 
+function resolveImageUrl(image: { url?: string | null; b64_json?: string | null }): string | null {
+  if (typeof image.url === "string" && image.url.trim()) return image.url;
+  if (typeof image.b64_json === "string" && image.b64_json.trim()) return `data:image/png;base64,${image.b64_json}`;
+  return null;
+}
+
 export async function generateShoeImages(input: GenerateShoeImagesInput): Promise<GeneratedImage[]> {
   const { endpoint, apiKey } = getImageModelConfig();
-  if (typeof fetch !== "function") throw new Error("Fetch API is unavailable");
   const request = buildGptImageRequest(input);
-  const response = await fetch(resolveImageEndpoint(endpoint), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(request),
+  const client = new OpenAI({
+    apiKey,
+    baseURL: resolveOpenAIBaseUrl(endpoint),
+    dangerouslyAllowBrowser: true,
   });
-  const payload = await response.json() as ImageProviderPayload;
+  const response = await client.images.generate({ ...request, stream: false } as OpenAI.Images.ImageGenerateParams);
+  const responseData = Array.isArray((response as { data?: unknown }).data)
+    ? ((response as { data: { url?: string | null; b64_json?: string | null }[] }).data)
+    : [];
 
-  if (!response.ok) throw new Error(payloadErrorMessage(payload));
-
-  const images = collectImages(payload)
+  const imageUrls = responseData
     .map(resolveImageUrl)
     .filter((url): url is string => Boolean(url))
-    .slice(0, request.n)
-    .map((url, idx) => ({ url, alt: `AI 鞋履效果图 ${idx + 1}` }));
+    .slice(0, request.n);
+
+  const images: GeneratedImage[] = imageUrls.map((url, idx) => ({ url, alt: `AI 鞋履效果图 ${idx + 1}` }));
 
   if (!images.length) throw new Error("Image model response missing images");
   return images;
