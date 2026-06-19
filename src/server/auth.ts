@@ -9,7 +9,9 @@ export interface SessionResult { token: string; user: SafeUser }
 function addMinutes(minutes: number) { return new Date(Date.now() + minutes * 60_000).toISOString(); }
 function addDays(days: number) { return new Date(Date.now() + days * 86_400_000).toISOString(); }
 async function tokenHash(token: string) {
-  const bits = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return tokenHashSync(token);
+  const bits = await subtle.digest("SHA-256", new TextEncoder().encode(token));
   return Array.from(new Uint8Array(bits), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
